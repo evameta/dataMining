@@ -74,6 +74,7 @@ def prepare_mood_data(raw_data):
 
         mood_final = mood_final.append(dict(zip(columns, results)), ignore_index=True)
 
+    mood_final.to_csv('mood.csv', index=False)
     return mood_final
 
 
