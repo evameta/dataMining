@@ -4,6 +4,10 @@ Assignment 1
 import pandas as pd
 from datetime import timedelta
 
+from sklearn import svm
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.model_selection import train_test_split
+
 
 LOOK_BACK = 8
 
@@ -32,12 +36,22 @@ def mood_dataframe():
 
     :return: empty dataframe with correct column names
     """
-    raw_columns = ['id', 'date']
+    raw_columns = ['id', 'date', 'output']
 
     for day in range(LOOK_BACK):
         raw_columns += 'mean_{n};min_{n};max_{n}'.format(n=day).split(';')
 
     return pd.DataFrame(columns=raw_columns), raw_columns
+
+
+def get_values(data, key_id, key_date, delta):
+
+    key = (key_id, key_date - timedelta(days=delta))
+
+    try:
+        return data.get_group(key)['value'], True
+    except KeyError:
+        return None, False
 
 
 def prepare_mood_data(raw_data):
@@ -62,17 +76,24 @@ def prepare_mood_data(raw_data):
         results = list(key)
         key_id, key_date = key
 
+        tomorrow, available = get_values(mood, key_id, key_date, -1)
+        if available:
+            results.append(tomorrow.mean())
+        else:
+            continue
+
         for day in range(LOOK_BACK):
 
-            look_back = (key_id, key_date - timedelta(days=day))
+            values, available = get_values(mood, key_id, key_date, day)
 
-            try:
-                values = mood.get_group(look_back)['value']
+            if available:
                 results += [values.mean(), values.min(), values.max()]
-            except KeyError:
-                results += [None, None, None]
+            else:
+                results = None
+                break
 
-        mood_final = mood_final.append(dict(zip(columns, results)), ignore_index=True)
+        if results:
+            mood_final = mood_final.append(dict(zip(columns, results)), ignore_index=True)
 
     mood_final.to_csv('mood.csv', index=False)
     return mood_final
@@ -101,7 +122,7 @@ def describe_period(data, period):
     return data
 
 
-def main():
+def preprocess():
     """
     Main Function
     """
@@ -111,8 +132,30 @@ def main():
     for period in [1, 2, 3, 5, 7]:
         mood = describe_period(mood, period)
 
-    print(mood[:30])
+    X = mood.drop(['output', 'id', 'date'], axis=1)
+    X = X.fillna(0)
+    y = mood['output'].astype(int)
 
+    return X, y
+
+
+def svm_classify():
+    """
+
+    :return:
+    """
+    X, y = preprocess()
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20)
+    print(X_train.shape)
+
+    svclassifier = svm.SVC(kernel='rbf', C=1.0, gamma=0.2)
+    svclassifier.fit(X_train, y_train)
+
+    y_pred = svclassifier.predict(X_test)
+    print(confusion_matrix(y_test, y_pred))
+    print(classification_report(y_test, y_pred))
+
+    print(y_test[:30], y_pred[:30])
 
 if __name__ == '__main__':
-    main()
+    svm_classify()
