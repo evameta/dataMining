@@ -64,7 +64,7 @@ def prepare_mood_data(raw_data):
     """
     try:
         with open('mood.csv') as file_:
-            return pd.read_csv(file_)
+            return pd.read_csv(file_, parse_dates=['date'])
     except IOError:
         pass
 
@@ -122,15 +122,18 @@ def describe_period(data, period):
     return data
 
 
-def preprocess():
+def enrich_data(data):
     """
-    Main Function
+
+    :param data:
+    :return:
     """
-    data = load_data()
     mood = prepare_mood_data(data.loc[data['variable'] == 'mood'])
 
     for period in [1, 2, 3, 5, 7]:
         mood = describe_period(mood, period)
+
+    mood = pd.concat([pd.get_dummies(mood['date'].apply(lambda x: x.weekday()), prefix='weekday'), mood], axis=1)
 
     X = mood.drop(['output', 'id', 'date'], axis=1)
     X = X.fillna(0)
@@ -139,12 +142,27 @@ def preprocess():
     return X, y
 
 
+def preprocess(method='plain'):
+    """
+
+    :param method:
+    :return:
+    """
+    data = load_data()
+    if method == 'plain':
+        return data
+    elif method == 'enriched':
+        return enrich_data(data)
+    else:
+        raise RuntimeError('Incorrect pre-processing method defined')
+
+
 def svm_classify():
     """
 
     :return:
     """
-    X, y = preprocess()
+    X, y = preprocess(method='enriched')
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20)
     print(X_train.shape)
 
@@ -154,8 +172,6 @@ def svm_classify():
     y_pred = svclassifier.predict(X_test)
     print(confusion_matrix(y_test, y_pred))
     print(classification_report(y_test, y_pred))
-
-    print(y_test[:30], y_pred[:30])
 
 if __name__ == '__main__':
     svm_classify()
