@@ -95,7 +95,6 @@ def prepare_mood_data(raw_data):
         if results:
             mood_final = mood_final.append(dict(zip(columns, results)), ignore_index=True)
 
-    mood_final.to_csv('mood.csv', index=False)
     return mood_final
 
 
@@ -134,6 +133,7 @@ def enrich_data(data):
         mood = describe_period(mood, period)
 
     mood = pd.concat([pd.get_dummies(mood['date'].apply(lambda x: x.weekday()), prefix='weekday'), mood], axis=1)
+    mood.to_csv('mood.csv', index=False)
 
     X = mood.drop(['output', 'id', 'date'], axis=1)
     X = X.fillna(0)
