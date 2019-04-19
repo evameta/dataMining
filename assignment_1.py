@@ -2,14 +2,15 @@
 Assignment 1
 """
 import pandas as pd
+import matplotlib.pyplot as plt
 from datetime import timedelta
 
 from sklearn import svm
-from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 
 
 LOOK_BACK = 8
+RELOAD = True
 
 
 def load_data():
@@ -164,29 +165,38 @@ def enrich_data(data):
     :param data:
     :return:
     """
+
+    try:
+        with open('mood.csv') as file_:
+            return pd.read_csv(file_, parse_dates=['date'])
+    except IOError:
+        pass
+
     mood = enrich_mood(data.loc[data['variable'] == 'mood'])
     weekdays = pd.get_dummies(mood['date'].apply(lambda x: x.weekday()), prefix='weekday')
     for period in [1, 2, 3, 5, 7]:
         mood = describe_period(mood, period)
-    enriched = pd.concat([mood, weekdays], axis=1)
 
+    enriched = pd.concat([mood, weekdays], axis=1)
     enriched.set_index(['id', 'date'], inplace=True)
 
     enriched = add_variable(data.loc[data['variable'] == 'screen'], enriched, 'screen_time')
-    #enriched = add_variable(data.loc[data['variable'] == 'call'], enriched, 'call', method='max')
-    #enriched = add_variable(data.loc[data['variable'] == 'activity'], enriched, 'screen_time', method='mean')
-    #enriched = add_variable(data.loc[data['variable'] == 'circumplex.valence'], enriched, 'valence', method='mean')
-    #enriched = add_variable(data.loc[data['variable'] == 'circumplex.arousal'], enriched, 'arousal', method='mean')
+    enriched = add_variable(data.loc[data['variable'] == 'call'], enriched, 'call', method='max')
+    enriched = add_variable(data.loc[data['variable'] == 'activity'], enriched, 'activity', method='mean')
+    enriched = add_variable(data.loc[data['variable'] == 'circumplex.valence'], enriched, 'valence', method='mean')
+    enriched = add_variable(data.loc[data['variable'] == 'circumplex.arousal'], enriched, 'arousal', method='mean')
 
     enriched = enriched.dropna(subset=['output'])
     enriched = enriched.fillna(0)
 
     enriched.to_csv('mood.csv')
 
-    X = mood.drop(['output', 'id', 'date'], axis=1)
-    y = mood['output'].astype(int)
+    columns = list(enriched)
+    plt.imshow(enriched.corr(), cmap='hot', interpolation='nearest')
+    plt.xticks(ticks=[i for i in range(len(columns))], labels=columns, rotation='vertical')
+    plt.show()
 
-    return X, y
+    return enriched
 
 
 def preprocess(method='plain'):
@@ -198,11 +208,21 @@ def preprocess(method='plain'):
     """
     data = load_data()
     if method == 'plain':
-        return data
+        pass
     elif method == 'enriched':
-        return enrich_data(data)
+        data = enrich_data(data)
     else:
         raise RuntimeError('Incorrect pre-processing method defined')
+
+    if 'id' in list(data) and 'date' in list(data):
+        X = data.drop(['output', 'id', 'date'], axis=1)
+        y = data.output
+    else:
+        X = data.reset_index(drop=True)
+        X = X.drop(['output'], axis=1)
+        y = data['output']
+
+    return X, y
 
 
 def svm_classify():
@@ -211,15 +231,26 @@ def svm_classify():
     :return:
     """
     X, y = preprocess(method='enriched')
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20)
-    print(X_train.shape)
 
-    svclassifier = svm.SVC(kernel='rbf', C=1.0, gamma=0.2)
-    svclassifier.fit(X_train, y_train)
+    errors = list()
 
-    y_pred = svclassifier.predict(X_test)
-    print(confusion_matrix(y_test, y_pred))
-    print(classification_report(y_test, y_pred))
+    for n in range(100):
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20)
+
+        svclassifier = svm.SVR(C=0.5, epsilon=0.1, gamma='auto')
+        svclassifier.fit(X_train, y_train)
+
+        y_pred = pd.Series(svclassifier.predict(X_test))
+        mse = ((y_test - y_pred.values) ** 2).mean()
+
+        print('Iteration', n + 1)
+        print('Mean Squared Error:', mse)
+
+        errors.append(mse)
+
+    print('Total mean square error:', sum(errors)/len(errors))
+
 
 if __name__ == '__main__':
     svm_classify()
