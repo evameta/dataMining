@@ -37,24 +37,42 @@ def run(reload=False):
         random_sample()
 
 
-def count_missing_values():
+def count_missing_values(calculate=True, plot=False):
 
-    with open('data/' + TRAIN) as file_:
-        reader = csv.reader(file_)
+    if calculate:
+        with open('data/' + TRAIN) as file_:
+            reader = csv.reader(file_)
 
-        headers = next(reader)
-        none_values = [0 for _ in headers]
+            headers = next(reader)
+            none_values = [0 for _ in headers]
 
-        for i, line in enumerate(reader):
-            none_values = list(map(add, none_values, [elem == 'NULL' for elem in line]))
+            for i, line in enumerate(reader):
+                none_values = list(map(add, none_values, [elem == 'NULL' for elem in line]))
 
-            if i % 10000 == 0:
-                print(i, 'iterations complete!')
+                if i % 10000 == 0:
+                    print(i, 'iterations complete!')
 
-    with open('data/none_values.csv', 'w', newline='') as out_:
-        writer = csv.writer(out_)
-        writer.writerow(headers)
-        writer.writerow(none_values)
+        with open('data/none_values.csv', 'w', newline='') as out_:
+            writer = csv.writer(out_)
+            writer.writerow(headers)
+            writer.writerow(none_values)
+
+    else:
+        with open('data/none_values.csv') as file_:
+            reader = csv.reader(file_)
+            headers = next(reader)
+            none_values = [int(elem) for elem in next(reader)]
+
+    if plot:
+        ordered = sorted(range(len(none_values)), key=lambda ind: -none_values[ind])
+        headers = [headers[o] for o in ordered if none_values[o] > 0]
+        none_values = [none_values[o] for o in ordered if none_values[o] > 0]
+        print(none_values)
+
+        plt.bar(headers, none_values)
+        plt.xticks(ticks=[i for i in range(len(headers))], labels=headers, rotation='vertical')
+        plt.yticks(ticks=range(0, max(none_values), 500000))
+        plt.savefig('none_values.pdf', bbox_inches="tight")
 
     return
 
@@ -73,4 +91,4 @@ def corr_matrix():
 
 
 if __name__ == '__main__':
-    corr_matrix()
+    count_missing_values(calculate=False, plot=True)
