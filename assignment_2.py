@@ -228,7 +228,7 @@ def bucketing_column(data, column, bucket_splits=None, bucket_size=None):
 
 def svmlight_file():
     df = pd.read_csv('data/' + 'cleaned_data.csv')
-    file = 'data/svm_file'
+    file = 'data/data_svm.svmlight'
     X = np.array(df.drop(columns=['target', 'srch_id']))
     y = np.array(df['target'])
     qid = np.array(df['srch_id'])
