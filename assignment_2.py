@@ -93,6 +93,11 @@ def statistics_data():
 
 
 def plot_data():
+    # Plots:
+    #   1. The normalized percentage per search position of clicked and booked properties.
+    #   2. The normalized percentage of booked properties per search position for random and ordered properties.
+
+    # 1.
     df = pd.read_csv("data/" + TRAIN)
     pos_clicked = df['position'].where(df['click_bool'] == 1)
     pos_booked = df['position'].where(df['booking_bool'] == 1)
@@ -108,14 +113,13 @@ def plot_data():
     plt.savefig('click_booked_pos.pdf', bbox_inches='tight')
     plt.show()
 
-    # plot hist of positions of booked hotels where ranking was random vs. ordered
+    # 2.
     pos_random = df['position'].where(df['booking_bool'] == 1).where(df['random_bool'] == 1)
     pos_ordered = df['position'].where(df['booking_bool'] == 1).where(df['random_bool'] == 0)
     pos_random = pos_random.value_counts(normalize=True)
     pos_random.index = pos_random.index.map(int)
     pos_ordered = pos_ordered.value_counts(normalize=True)
     pos_ordered.index = pos_ordered.index.map(int)
-
     fig, ax = plt.subplots(figsize=[15, 5])
     x = np.arange(1, 41)
     ax.bar(x - 0.2, pos_random[x], width=0.4, label='Random', color='red')
@@ -126,17 +130,40 @@ def plot_data():
     plt.savefig('random_booked_pos.pdf', bbox_inches='tight')
     plt.show()
 
+
 def clean_data():
 
-    df = pd.read_csv("data/" + SAMPLE)
+    df = pd.read_csv("data/" + TRAIN)
 
-    # Set missing competitor data to 0.
+    # The distance between customer and hotel is set to -1.
+    df["orig_destination_distance"] = df['orig_destination_distance'].fillna(-1)
+
+    # Set missing competitor data to -1.
     filter_col = [col for col in df if col.startswith('comp')]
-    df[filter_col] = df[filter_col].fillna(0)
+    df[filter_col] = df[filter_col].fillna(-1)
+
+    # Replace NaN in prop_review_score and prop_location_score2 with minimum of search. Few have no values still --> 0
+    df["prop_review_score"] = df.groupby("srch_id")["prop_review_score"].transform(lambda x: x.fillna(x.min()))
+    df["prop_review_score"] = df['prop_review_score'].fillna(0)
+
+    df["prop_location_score2"] = df.groupby("srch_id")["prop_location_score2"].transform(lambda x: x.fillna(x.min()))
+    df["prop_location_score2"] = df["prop_location_score2"].fillna(0)
+
+    # User data according to matching/mismatching with historical data.
+    df["starrating_diff"] = (df['visitor_hist_starrating'].fillna(0) - df['prop_starrating'].fillna(0)).abs()
+    df["usd_diff"] = np.log10((df['visitor_hist_adr_usd'].fillna(0) - df['price_usd'].fillna(0)).abs())
 
     # Remove column if not useful or missing data.
-    df = df.drop(columns=['date_time', 'srch query affinity score'])
-    df.groupby()
+    df = df.drop(columns=['date_time', 'gross_booking_usd', 'srch_query_affinity_score', 'visitor_hist_starrating',
+                          'visitor_hist_adr_usd'])
+
+    # Normalize price_usd,
+    norm_columns = ['price_usd', 'prop_location_score1', 'prop_location_score2']
+    df[norm_columns] = df[norm_columns].apply(lambda x: (x - x.min()) / (x.max() - x.min()))
+
+    print(df['price_usd'].head(n=20))
+    print(df.isna().sum())
+    df.to_csv('data/cleaned_data.csv')
 
 
 if __name__ == '__main__':
