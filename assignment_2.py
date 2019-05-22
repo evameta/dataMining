@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.datasets import dump_svmlight_file
 from operator import add
+from sklearn.preprocessing import MinMaxScaler
 
 TRAIN = 'training_set_VU_DM.csv'
 SAMPLE = 'training_sample.csv'
@@ -176,10 +177,34 @@ def clean_data():
 
     # Normalize price_usd,
     norm_columns = ['price_usd', 'prop_location_score1', 'prop_location_score2']
-    df[norm_columns] = df[norm_columns].apply(lambda x: (x - x.min()) / (x.max() - x.min()))
+    df = normalise_columns(df, norm_columns)
 
-    print(df.isna().sum())
     df.to_csv('data/cleaned_data.csv')
+
+
+def normalise_columns(data, columns):
+    scalar = MinMaxScaler()
+    for column in columns:
+        scaled = scalar.fit_transform(data[[column]].values.astype('float'))
+        data[column] = pd.Series(scaled[:, 0])
+
+    return data
+
+
+def bucketing_column(data, column, bucket_splits=None, bucket_size=None):
+
+    try:
+        bucket_splits = sorted(bucket_splits)
+    except TypeError:
+        column_max = data[column].max()
+        bucket_splits = [50 * i for i in range(math.ceil(column_max/bucket_size) + 1)]
+
+    for lower, upper in zip(bucket_splits[:-1], bucket_splits[1:]):
+        new_column = '{col}_{lo}_{hi}'.format(col=column, lo=lower, hi=upper)
+        data[new_column] = (lower < data[column]) & (data[column] <= upper)
+
+    return data
+
 
 
 def svmlight_file():
@@ -193,3 +218,4 @@ def svmlight_file():
 
 if __name__ == '__main__':
     clean_data()
+    svmlight_file()
