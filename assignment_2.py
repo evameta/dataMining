@@ -128,7 +128,9 @@ def plot_data():
     ax.bar(x + 0.2, pos_booked[x], width=0.4, label='Booked', color='green')
     ax.set_xticks(x)
     ax.set_yticklabels(['{:.1%}'.format(i) for i in np.linspace(0, 0.2, 9)])
-    plt.legend(fancybox=True, loc=1)
+    ax.set_ylabel('Percentage clicked/booked')
+    ax.set_xlabel('Position')
+    plt.legend(fancybox=True, loc=9)
     plt.savefig('click_booked_pos.pdf', bbox_inches='tight')
     plt.show()
 
@@ -145,14 +147,16 @@ def plot_data():
     ax.bar(x + 0.2, pos_ordered[x], width=0.4, label='Ordered', color='green')
     ax.set_xticks(x)
     ax.set_yticklabels(['{:.1%}'.format(i) for i in np.linspace(0, 0.2, 9)])
-    plt.legend(fancybox=True, loc=1)
+    ax.set_xlabel('Position')
+    ax.set_ylabel('Percentage random/ordered')
+    plt.legend(fancybox=True, loc=9)
     plt.savefig('random_booked_pos.pdf', bbox_inches='tight')
     plt.show()
 
 
 def clean_data():
 
-    df = pd.read_csv("data/" + TRAIN)
+    df = pd.read_csv("data/" + SAMPLE)
 
     # The distance between customer and hotel is set to -1.
     df["orig_destination_distance"] = df['orig_destination_distance'].fillna(-1)
@@ -178,8 +182,13 @@ def clean_data():
     # Normalize price_usd,
     norm_columns = ['price_usd', 'prop_location_score1', 'prop_location_score2']
     df = normalise_columns(df, norm_columns)
-
+    df = df.replace([np.inf, -np.inf], np.nan)
+    print(df.isna().sum())
+    df = df.fillna(-1)
     df.to_csv('data/cleaned_data.csv')
+
+    # Define target
+    df['target'] = np.fmax((5 * df['booking_bool']).values, df['click_bool'].values)
 
 
 def normalise_columns(data, columns):
@@ -204,7 +213,6 @@ def bucketing_column(data, column, bucket_splits=None, bucket_size=None):
         data[new_column] = (lower < data[column]) & (data[column] <= upper)
 
     return data
-
 
 
 def svmlight_file():
