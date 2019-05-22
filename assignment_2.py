@@ -4,6 +4,7 @@ Hello
 import csv
 import random
 import pandas as pd
+import math
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,7 +19,7 @@ LEN_TRAIN = 4958347
 
 def random_sample(k=150):
     """
-    Random Sample
+    Generate a random sample from the training data_set and save to new .csv file
     """
     with open('data/' + TRAIN) as file_, open('data/training_sample.csv', mode='w', newline='') as out_:
         reader = csv.reader(file_, None)
@@ -34,14 +35,10 @@ def random_sample(k=150):
                 writer.writerow(line)
 
 
-def run(reload=False):
-
-    if reload:
-        random_sample()
-
-
 def count_missing_values(calculate=True, plot=False):
-
+    """
+    Counts the
+    """
     if calculate:
         with open('data/' + TRAIN) as file_:
             reader = csv.reader(file_)
@@ -154,7 +151,10 @@ def plot_data():
     plt.show()
 
 
-def clean_data():
+def clean_data(reload=True):
+
+    if reload:
+        random_sample(150)
 
     df = pd.read_csv("data/" + SAMPLE)
 
@@ -185,13 +185,18 @@ def clean_data():
     df = df.replace([np.inf, -np.inf], np.nan)
     print(df.isna().sum())
     df = df.fillna(-1)
+
     df.to_csv('data/cleaned_data.csv')
 
     # Define target
     df['target'] = np.fmax((5 * df['booking_bool']).values, df['click_bool'].values)
 
 
-def normalise_columns(data, columns):
+def normalise_columns(data, *columns):
+    """
+    Normalises the values in a column of the dataframe passed, indicated by a string containing the name of the
+    column(s) selected.
+    """
     scalar = MinMaxScaler()
     for column in columns:
         scaled = scalar.fit_transform(data[[column]].values.astype('float'))
@@ -201,7 +206,13 @@ def normalise_columns(data, columns):
 
 
 def bucketing_column(data, column, bucket_splits=None, bucket_size=None):
-
+    """
+    Transposes a column containing continuous data into multiple columns, with binary values indicating the buckets
+    into which the data from the first column fits. Passing the parameter 'bucket_splits' lets the user manually set
+    the ranges into which the splits are to occur (this is just a list of integers). On the other hand, passind the
+    parameter bucket_size (simply an integer), lets the function determine the max of the column, and splits the data
+    into buckets (starting at 0) of size 'bucket_size'.
+    """
     try:
         bucket_splits = sorted(bucket_splits)
     except TypeError:
