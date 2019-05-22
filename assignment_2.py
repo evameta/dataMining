@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-
+from sklearn.datasets import dump_svmlight_file
 from operator import add
 
 TRAIN = 'training_set_VU_DM.csv'
@@ -152,18 +152,25 @@ def clean_data():
     # User data according to matching/mismatching with historical data.
     df["starrating_diff"] = (df['visitor_hist_starrating'].fillna(0) - df['prop_starrating'].fillna(0)).abs()
     df["usd_diff"] = np.log10((df['visitor_hist_adr_usd'].fillna(0) - df['price_usd'].fillna(0)).abs())
-
     # Remove column if not useful or missing data.
-    df = df.drop(columns=['date_time', 'gross_booking_usd', 'srch_query_affinity_score', 'visitor_hist_starrating',
+    df = df.drop(columns=['date_time', 'gross_bookings_usd', 'srch_query_affinity_score', 'visitor_hist_starrating',
                           'visitor_hist_adr_usd'])
 
     # Normalize price_usd,
     norm_columns = ['price_usd', 'prop_location_score1', 'prop_location_score2']
     df[norm_columns] = df[norm_columns].apply(lambda x: (x - x.min()) / (x.max() - x.min()))
 
-    print(df['price_usd'].head(n=20))
     print(df.isna().sum())
     df.to_csv('data/cleaned_data.csv')
+
+
+def svmlight_file():
+    df = pd.read_csv('data/' + 'cleaned_data.csv')
+    file = 'data/svm_file'
+    target_columns = ['booking_bool', 'click_bool']
+    X = np.array(df.drop(columns=target_columns))
+    y = np.array(df['booking_bool'])
+    dump_svmlight_file(X, y, file, multilabel=True)
 
 
 if __name__ == '__main__':
