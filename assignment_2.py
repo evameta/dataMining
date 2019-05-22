@@ -109,11 +109,11 @@ def statistics_data():
 
 
 def plot_data():
-    # Plots:
-    #   1. The normalized percentage per search position of clicked and booked properties.
-    #   2. The normalized percentage of booked properties per search position for random and ordered properties.
-
-    # 1.
+    """
+    Plots:
+       1. The normalized percentage per search position of clicked and booked properties.
+       2. The normalized percentage of booked properties per search position for random and ordered properties.
+    """
     df = pd.read_csv("data/" + TRAIN)
     pos_clicked = df['position'].where(df['click_bool'] == 1)
     pos_booked = df['position'].where(df['booking_bool'] == 1)
@@ -131,7 +131,6 @@ def plot_data():
     plt.savefig('click_booked_pos.pdf', bbox_inches='tight')
     plt.show()
 
-    # 2.
     pos_random = df['position'].where(df['booking_bool'] == 1).where(df['random_bool'] == 1)
     pos_ordered = df['position'].where(df['booking_bool'] == 1).where(df['random_bool'] == 0)
     pos_random = pos_random.value_counts(normalize=True)
@@ -151,12 +150,12 @@ def plot_data():
     plt.show()
 
 
-def clean_data(reload=True):
+def clean_data(reload=False):
 
     if reload:
         random_sample(150)
 
-    df = pd.read_csv("data/" + SAMPLE)
+    df = pd.read_csv("data/" + TRAIN)
 
     # The distance between customer and hotel is set to -1.
     df["orig_destination_distance"] = df['orig_destination_distance'].fillna(-1)
@@ -175,19 +174,19 @@ def clean_data(reload=True):
     # User data according to matching/mismatching with historical data.
     df["starrating_diff"] = (df['visitor_hist_starrating'].fillna(0) - df['prop_starrating'].fillna(0)).abs()
     df["usd_diff"] = np.log10((df['visitor_hist_adr_usd'].fillna(0) - df['price_usd'].fillna(0)).abs())
-    # Remove column if not useful or missing data.
-    df = df.drop(columns=['date_time', 'gross_bookings_usd', 'srch_query_affinity_score', 'visitor_hist_starrating',
-                          'visitor_hist_adr_usd'])
 
     # Normalize price_usd.
     norm_columns = ['price_usd', 'prop_location_score1', 'prop_location_score2']
     df = normalise_columns(df, *norm_columns)
     df = df.replace([np.inf, -np.inf], np.nan)
-    print(df.isna().sum())
     df = df.fillna(-1)
 
     # Define target in training set.
     df['target'] = np.fmax((5 * df['booking_bool']).values, df['click_bool'].values)
+
+    # Remove column if not useful or missing data.
+    df = df.drop(columns=['date_time', 'gross_bookings_usd', 'srch_query_affinity_score', 'visitor_hist_starrating',
+                          'visitor_hist_adr_usd', 'booking_bool', 'click_bool'])
 
     # Save to file.
     df.to_csv('data/cleaned_data.csv')
@@ -230,12 +229,11 @@ def bucketing_column(data, column, bucket_splits=None, bucket_size=None):
 def svmlight_file():
     df = pd.read_csv('data/' + 'cleaned_data.csv')
     file = 'data/svm_file'
-    target_columns = ['booking_bool', 'click_bool']
-    X = np.array(df.drop(columns=target_columns))
-    y = np.array(df['booking_bool'])
-    dump_svmlight_file(X, y, file, multilabel=True)
+    X = np.array(df.drop(columns=['target', 'srch_id']))
+    y = np.array(df['target'])
+    qid = np.array(df['srch_id'])
+    dump_svmlight_file(X, y, file, multilabel=False, query_id=qid)
 
 
 if __name__ == '__main__':
-    clean_data()
     svmlight_file()
