@@ -179,17 +179,18 @@ def clean_data(reload=True):
     df = df.drop(columns=['date_time', 'gross_bookings_usd', 'srch_query_affinity_score', 'visitor_hist_starrating',
                           'visitor_hist_adr_usd'])
 
-    # Normalize price_usd,
+    # Normalize price_usd.
     norm_columns = ['price_usd', 'prop_location_score1', 'prop_location_score2']
-    df = normalise_columns(df, norm_columns)
+    df = normalise_columns(df, *norm_columns)
     df = df.replace([np.inf, -np.inf], np.nan)
     print(df.isna().sum())
     df = df.fillna(-1)
 
-    df.to_csv('data/cleaned_data.csv')
-
-    # Define target
+    # Define target in training set.
     df['target'] = np.fmax((5 * df['booking_bool']).values, df['click_bool'].values)
+
+    # Save to file.
+    df.to_csv('data/cleaned_data.csv')
 
 
 def normalise_columns(data, *columns):
