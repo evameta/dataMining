@@ -59,6 +59,9 @@ class DataProcessing:
         self.day_of_week()
         self.month_of_year()
 
+        self.prop_click_rate()
+        self.prop_book_rate()
+
         self.data = self.data.replace([np.inf, -np.inf], np.nan)
         self.data = self.data.fillna(-1)
 
@@ -161,6 +164,30 @@ class DataProcessing:
         months = self.data['date_time'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S').strftime('%B'))
         months = pd.get_dummies(months).astype('int').replace(0, -1)
         self.data = pd.concat([self.data, months], axis=1)
+
+    def prop_click_rate(self):
+        """
+        Add the proportion of times the property has been clicked when displayed in the past
+        """
+        logger.info('Adding click_rate column.')
+        self.data['click_rate'] = self.data.groupby('prop_id')['click_bool'].transform(lambda x: x.sum() / x.shape[0])
+
+    def prop_book_rate(self):
+        """
+        Add the proportion of times the property has been booked when displayed in the past
+        """
+        logger.info('Adding booking_rate column.')
+        self.data['booking_rate'] = self.data.groupby('prop_id')['booking_bool'].transform(lambda x: x.sum() / x.shape[0])
+
+    def mean_prop_position(self):
+        """
+        Add a column containing mean position in ranking of property
+        """
+        logger.info('Adding mean_prop_position column (only for training data).')
+        if self.type == 'test':
+            return
+        logger.info('Adding mean ranking position per property.')
+        self.data['mean_prop_position'] = self.data.groupby('prop_id')['position'].transform(lambda x: x.mean())
 
     def save_to_file(self):
         """
@@ -352,17 +379,27 @@ def validation_set():
 
 
 def submission_final():
-    ranklib_df= pd.read_csv('lambdamart.scores',
-                            sep="\t", header=None,
-                            names=['srch_id', 'local_prod_id', 'score'])
+    """
+    Create the final submission file for Kaggle
+    """
+    ranklib_df = pd.read_csv('lambdamart.scores', sep="\t", header=None,
+                             names=['srch_id', 'local_prod_id', 'score'])
+    print(ranklib_df.head())
     test_df = pd.read_csv("data/test_set_VU_DM.csv", header=0, usecols=['srch_id', 'prop_id'])
     test_df['score'] = -ranklib_df['score']
-    sorted_df = test_df[['srch_id', 'prop_id', 'score']]. sort_values(['srch_id', 'score'])
+    print(test_df.head())
+    sorted_df = test_df[['srch_id', 'prop_id', 'score']].sort_values(['srch_id', 'score'])
     sorted_df.score = -sorted_df.score
-    submission = pd.DataFrame({'srch_id': sorted_df.srch_id, 'prop_id': sorted_df.prop_id})
-    submission.to_csv('data/ranklibLambdaMART_submission.csv', index=False)
+    print(sorted_df.head())
+    submission = pd.DataFrame({'srch_id': sorted_df.srch_id, 'prop_id': sorted_df.prop_id})[['srch_id', 'prop_id']]
+    submission.to_csv('data/LambdaMART_submission.csv', index=False)
     print(submission.head())
 
 if __name__ == '__main__':
+    DataProcessing('test').preprocess()
+    svmlight_file('test')
+    #validation_set()
+    #svmlight_file('train_val')
+    #svmlight_file('val')
 
-    submission_final()
+
