@@ -297,27 +297,6 @@ def normalise_columns(data, *columns):
     return data
 
 
-def bucketing_column(data, column, bucket_splits=None, bucket_size=None):
-    """
-    Transposes a column containing continuous data into multiple columns, with binary values indicating the buckets
-    into which the data from the first column fits. Passing the parameter 'bucket_splits' lets the user manually set
-    the ranges into which the splits are to occur (this is just a list of integers). On the other hand, passind the
-    parameter bucket_size (simply an integer), lets the function determine the max of the column, and splits the data
-    into buckets (starting at 0) of size 'bucket_size'.
-    """
-    try:
-        bucket_splits = sorted(bucket_splits)
-    except TypeError:
-        column_max = data[column].max()
-        bucket_splits = [50 * i for i in range(math.ceil(column_max/bucket_size) + 1)]
-
-    for lower, upper in zip(bucket_splits[:-1], bucket_splits[1:]):
-        new_column = '{col}_{lo}_{hi}'.format(col=column, lo=lower, hi=upper)
-        data[new_column] = (lower < data[column]) & (data[column] <= upper)
-
-    return data
-
-
 def svmlight_file():
     """
     Create .svmlight file
