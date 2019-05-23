@@ -56,13 +56,15 @@ class DataProcessing:
         self.fill_na_prop_location_score2()
         self.historical_user_data()
 
-        self.bucketing_column('price_usd', splits=[0, 50, 100, 150, 200, 300, 400, 500, 1000])
         self.normalise_column(*self.columns_to_normalise)
 
         self.data = self.data.replace([np.inf, -np.inf], np.nan)
         self.data = self.data.fillna(-1)
 
+        self.make_target_column()
         self.drop_columns()
+
+        self.data.replace(0, -1, inplace=True)
 
         logger.info('Preprocessing completed in {s:.3f} seconds'.format(s=time.time() - start))
 
@@ -114,12 +116,12 @@ class DataProcessing:
         Add target column to dataframe
         """
         logger.info('Adding target column to data.' +
-                    (' This is the test data, so a column of zeros.' if self.type else ''))
+                    (' This is the test data, so a column of zeros.' if self.type == 'test' else ''))
 
         if self.type == 'test':
             self.data['target'] = 0
         else:
-            self.data['target'] = np.fmax((5 * self.data['booking_bool'].values), self.data['click_bool'].values)
+            self.data['target'] = np.fmax((5 * self.data['booking_bool'].values), self.data['click_bool'].values) + 1
 
     def drop_columns(self):
         """
@@ -140,7 +142,7 @@ class DataProcessing:
 
         for lower, upper in zip(splits[:-1], splits[1:]):
             new_column = '{col}_{lo}_{hi}'.format(col=column, lo=lower, hi=upper)
-            self.data[new_column] = (lower < self.data[column]) & (self.data[column] <= upper)
+            self.data[new_column] = ((lower < self.data[column]) & (self.data[column] <= upper)).astype('int')
 
     def save_to_file(self):
         """
@@ -149,7 +151,7 @@ class DataProcessing:
         file_name = 'data/out/' + self.type + '.csv'
         logger.info('Saving pre-processed data to ' + file_name)
 
-        self.data.to_csv(file_name)
+        self.data.to_csv(file_name, index=False)
 
 
 def random_sample(k=1000):
@@ -308,9 +310,10 @@ def svmlight_file():
 
     file = 'data/data_svm.svmlight'
     start = time.time()
-    dump_svmlight_file(input_data, target, file, multilabel=False, query_id=qid)
+    dump_svmlight_file(input_data, target, file, multilabel=False, query_id=qid, zero_based=False)
     logger.info('SVMLIGHT file created in {s} seconds'.format(s=time.time() - start))
 
 
 if __name__ == '__main__':
-    DataProcessing(data='sample').preprocess()
+    DataProcessing('sample').preprocess()
+    svmlight_file()
