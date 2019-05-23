@@ -351,9 +351,18 @@ def validation_set():
     logger.info('train and validation file created in {s} seconds'.format(s=time.time() - start))
 
 
+def submission_final():
+    ranklib_df= pd.read_csv('lambdamart.scores',
+                            sep="\t", header=None,
+                            names=['srch_id', 'local_prod_id', 'score'])
+    test_df = pd.read_csv("data/test_set_VU_DM.csv", header=0, usecols=['srch_id', 'prop_id'])
+    test_df['score'] = -ranklib_df['score']
+    sorted_df = test_df[['srch_id', 'prop_id', 'score']]. sort_values(['srch_id', 'score'])
+    sorted_df.score = -sorted_df.score
+    submission = pd.DataFrame({'srch_id': sorted_df.srch_id, 'prop_id': sorted_df.prop_id})
+    submission.to_csv('data/ranklibLambdaMART_submission.csv', index=False)
+    print(submission.head())
+
 if __name__ == '__main__':
 
-    validation_set()
-    svmlight_file('train_val')
-    svmlight_file('val')
-
+    submission_final()
