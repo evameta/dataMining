@@ -19,16 +19,129 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger('expedia')
 logger.setLevel(logging.DEBUG)
 
-TRAIN = 'training_set_VU_DM.csv'
-SAMPLE = 'training_sample.csv'
+TRAIN = 'train.csv'
+SAMPLE = 'sample.csv'
 LEN_TRAIN = 4958347
+
+
+class DataProcessing:
+
+    def __init__(self, data='train'):
+        self.type = data
+        self.file_name = 'data/in/' + self.type + '.csv'
+        self.data = self.load_data()
+
+        self.columns_to_normalise = ['price_usd', 'prop_location_score1', 'prop_location_score2']
+        self.columns_to_drop = ['date_time', 'gross_bookings_usd', 'srch_query_affinity_score',
+                                'visitor_hist_starrating', 'visitor_hist_adr_usd', 'booking_bool', 'click_bool']
+
+    def load_data(self):
+        """
+        Load data to process form input file
+        """
+        logger.info('Loading ' + self.type + ' data from file: ' + self.file_name)
+        data = pd.read_csv(self.file_name)
+        logger.info('Number of rows found in set: {n}'.format(n=len(data)))
+
+        return data
+
+    def preprocess(self):
+        """
+        Full pre-processing pipeline executed
+        """
+        logger.info('Starting pre-processing for ' + self.type + ' data.')
+        start = time.time()
+
+        self.fill_na_prop_review_score()
+        self.fill_na_prop_location_score2()
+        self.historical_user_data()
+        self.normalise_column(*self.columns_to_normalise)
+
+        self.data = self.data.replace([np.inf, -np.inf], np.nan)
+        self.data = self.data.fillna(-1)
+
+        self.drop_columns()
+
+        logger.info('Preprocessing completed in {s:.3f} seconds'.format(s=time.time() - start))
+
+        self.save_to_file()
+
+    def fill_na_prop_review_score(self):
+        """
+        Fill Na values in prop_review_score column with group minimum, or zero otherwise
+        """
+        logger.info('Replace NaN in prop_review_score with search minimum, or 0 otherwise.')
+
+        prs = 'prop_review_score'
+        self.data[prs] = self.data.groupby('srch_id')[prs].transform(lambda x: x.fillna(x.min()))
+        self.data[prs] = self.data[prs].fillna(0)
+
+    def fill_na_prop_location_score2(self):
+        """
+        Fill Na values in prop_review_score2 column with group minimum, or zero otherwise
+        """
+        logger.info('Replace NaN in prop_location_score2 with search minimum, or 0 otherwise.')
+
+        prs = 'prop_location_score2'
+        self.data[prs] = self.data.groupby('srch_id')[prs].transform(lambda x: x.fillna(x.min()))
+        self.data[prs] = self.data[prs].fillna(0)
+
+    def historical_user_data(self):
+        """
+        Combine property star rating and price with historical user data
+        """
+        logger.info('User data according to matching/mismatching with historical data.')
+
+        hist_rating, rating = 'visitor_hist_starrating', 'prop_starrating'
+        hist_price, price = 'visitor_hist_adr_usd', 'price_usd'
+
+        self.data['starrating_diff'] = (self.data[hist_rating].fillna(0) - self.data[rating].fillna(0)).abs()
+        self.data['usd_diff'] = np.log10((self.data[hist_price].fillna(0) - self.data[price].fillna(0)).abs())
+
+    def normalise_column(self, *columns):
+        """
+        Normalise columns
+        """
+        scalar = MinMaxScaler()
+        for column in columns:
+            scaled = scalar.fit_transform(self.data[[column]].values.astype('float'))
+            self.data[column] = pd.Series(scaled[:, 0])
+
+    def make_target_column(self):
+        """
+        Add target column to dataframe
+        """
+        logger.info('Adding target column to data.' +
+                    (' This is the test data, so a column of zeros.' if self.type else ''))
+
+        if self.type == 'test':
+            self.data['target'] = 0
+        else:
+            self.data['target'] = np.fmax((5 * self.data['booking_bool'].values), self.data['click_bool'].values)
+
+    def drop_columns(self):
+        """
+        Drop unnecessary columns
+        """
+        logger.info('Removing columns with unnecessary or incomplete data.')
+
+        self.data = self.data.drop(columns=self.columns_to_drop, errors='ignore')
+
+    def save_to_file(self):
+        """
+        Saving processing data to csv file
+        """
+        file_name = 'data/out/' + self.type + '.csv'
+        logger.info('Saving pre-processed data to ' + file_name)
+
+        self.data.to_csv(file_name)
 
 
 def random_sample(k=1000):
     """
     Generate a random sample from the training data_set and save to new .csv file
     """
-    with open('data/' + TRAIN) as file_, open('data/training_sample.csv', mode='w', newline='') as out_:
+    with open('data/in/' + TRAIN) as file_, open('data/out/sample.csv', mode='w', newline='') as out_:
         reader = csv.reader(file_, None)
         writer = csv.writer(out_)
 
@@ -85,8 +198,8 @@ def count_missing_values(calculate=True, plot=False):
 
 
 def corr_matrix():
-    df = pd.read_csv("data/training_set_VU_DM.csv")
-    #df = pd.read_csv("data/training_sample.csv")
+    df = pd.read_csv('data/in/train.csv')
+    #df = pd.read_csv("data/sample.csv")
     mpl.rcParams.update({'font.size': 5})
     columns = list(df)
     ax = plt.imshow(df.corr(), cmap='hot', interpolation='nearest')
@@ -95,7 +208,6 @@ def corr_matrix():
     plt.colorbar().set_label('correlation',fontsize=10)
     plt.savefig('corr_matrix.pdf',  bbox_inches="tight")
     plt.show()
-
 
 
 def statistics_data():
@@ -157,48 +269,6 @@ def plot_data():
     plt.show()
 
 
-def clean_data(reload=False):
-
-    if reload:
-        random_sample()
-
-    df = pd.read_csv("data/" + SAMPLE)
-
-    logger.info('The distance between customer and hotel is set to -1.')
-    df["orig_destination_distance"] = df['orig_destination_distance'].fillna(-1)
-
-    logger.info('Set missing competitor data to -1.')
-    filter_col = [col for col in df if col.startswith('comp')]
-    df[filter_col] = df[filter_col].fillna(-1)
-
-    logger.info('Replace NaN in prop_review_score and prop_location_score2 with minimum of search. Few have no values still --> 0')
-    df["prop_review_score"] = df.groupby("srch_id")["prop_review_score"].transform(lambda x: x.fillna(x.min()))
-    df["prop_review_score"] = df['prop_review_score'].fillna(0)
-
-    df["prop_location_score2"] = df.groupby("srch_id")["prop_location_score2"].transform(lambda x: x.fillna(x.min()))
-    df["prop_location_score2"] = df["prop_location_score2"].fillna(0)
-
-    logger.info('User data according to matching/mismatching with historical data.')
-    df["starrating_diff"] = (df['visitor_hist_starrating'].fillna(0) - df['prop_starrating'].fillna(0)).abs()
-    df["usd_diff"] = np.log10((df['visitor_hist_adr_usd'].fillna(0) - df['price_usd'].fillna(0)).abs())
-
-    logger.info('Normalize price_usd.')
-    norm_columns = ['price_usd', 'prop_location_score1', 'prop_location_score2']
-    df = normalise_columns(df, *norm_columns)
-    df = df.replace([np.inf, -np.inf], np.nan)
-    df = df.fillna(-1)
-
-    logger.info('Define target in training set.')
-    df['target'] = np.fmax((5 * df['booking_bool']).values, df['click_bool'].values)
-
-    logger.info('Remove column if not useful or missing data.')
-    df = df.drop(columns=['date_time', 'gross_bookings_usd', 'srch_query_affinity_score', 'visitor_hist_starrating',
-                          'visitor_hist_adr_usd', 'booking_bool', 'click_bool'])
-
-    logger.info('Save to file.')
-    df.to_csv('data/cleaned_data.csv')
-
-
 def normalise_columns(data, *columns):
     """
     Normalises the values in a column of the dataframe passed, indicated by a string containing the name of the
@@ -237,7 +307,7 @@ def svmlight_file():
     """
     Create .svmlight file
     """
-    df = pd.read_csv('data/' + 'cleaned_data.csv')
+    df = pd.read_csv('data/out/sample.csv')
     input_data = np.array(df.drop(columns=['target', 'srch_id']))
     target = np.array(df['target'])
     qid = np.array(df['srch_id'])
@@ -249,4 +319,4 @@ def svmlight_file():
 
 
 if __name__ == '__main__':
-    svmlight_file()
+    DataProcessing(data='sample').preprocess()
