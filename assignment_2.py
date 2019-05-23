@@ -58,6 +58,7 @@ class DataProcessing:
 
         self.normalise_column(*self.columns_to_normalise)
         self.day_of_week()
+        self.month_of_year()
 
         self.data = self.data.replace([np.inf, -np.inf], np.nan)
         self.data = self.data.fillna(-1)
@@ -152,6 +153,14 @@ class DataProcessing:
         days = self.data['date_time'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S').strftime('%A'))
         days = pd.get_dummies(days).astype('int').replace(0, -1)
         self.data = pd.concat([self.data, days], axis=1)
+
+    def month_of_year(self):
+        """
+        Add day-of-week information
+        """
+        months = self.data['date_time'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S').strftime('%B'))
+        months = pd.get_dummies(months).astype('int').replace(0, -1)
+        self.data = pd.concat([self.data, months], axis=1)
 
     def save_to_file(self):
         """
