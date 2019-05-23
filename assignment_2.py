@@ -88,7 +88,7 @@ class DataProcessing:
 
         prs = 'prop_location_score2'
         self.data[prs] = self.data.groupby('srch_id')[prs].transform(lambda x: x.fillna(x.min()))
-        self.data[prs] = self.data[prs].fillna(0)
+        self.data[prs] = self.data[prs].fillna(-1)
 
     def historical_user_data(self):
         """
@@ -315,5 +315,5 @@ def svmlight_file(data):
 
 
 if __name__ == '__main__':
-    DataProcessing('sample').preprocess()
-    svmlight_file('sample')
+    DataProcessing('test').preprocess()
+    svmlight_file('test')
