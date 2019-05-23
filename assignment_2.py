@@ -304,7 +304,7 @@ def svmlight_file(data):
     Create .svmlight file
     """
     df = pd.read_csv('data/out/' + data + '.csv')
-    input_data = np.array(df.drop(columns=['target', 'srch_id']))
+    input_data = np.array(df.drop(columns=['target', 'srch_id'], errors='ignore'))
     target = np.array(df['target'])
     qid = np.array(df['srch_id'])
 
@@ -315,5 +315,5 @@ def svmlight_file(data):
 
 
 if __name__ == '__main__':
-    DataProcessing('sample').preprocess()
-    svmlight_file('sample')
+    #DataProcessing('train').preprocess()
+    svmlight_file('test')
