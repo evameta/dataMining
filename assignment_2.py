@@ -179,6 +179,16 @@ class DataProcessing:
         logger.info('Adding booking_rate column.')
         self.data['booking_rate'] = self.data.groupby('prop_id')['booking_bool'].transform(lambda x: x.sum() / x.shape[0])
 
+    def mean_prop_position(self):
+        """
+        Add a column containing mean position in ranking of property
+        """
+        logger.info('Adding mean_prop_position column (only for training data).')
+        if self.type == 'test':
+            return
+        logger.info('Adding mean ranking position per property.')
+        self.data['mean_prop_position'] = self.data.groupby('prop_id')['position'].transform(lambda x: x.mean())
+
     def save_to_file(self):
         """
         Saving processing data to csv file
@@ -373,4 +383,3 @@ if __name__ == '__main__':
     validation_set()
     svmlight_file('train_val')
     svmlight_file('val')
-
