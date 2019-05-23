@@ -24,7 +24,6 @@ TRAIN = 'train.csv'
 SAMPLE = 'sample.csv'
 LEN_TRAIN = 4958347
 
-
 class DataProcessing:
 
     def __init__(self, data='train'):
@@ -90,7 +89,7 @@ class DataProcessing:
 
         prs = 'prop_location_score2'
         self.data[prs] = self.data.groupby('srch_id')[prs].transform(lambda x: x.fillna(x.min()))
-        self.data[prs] = self.data[prs].fillna(0)
+        self.data[prs] = self.data[prs].fillna(-1)
 
     def historical_user_data(self):
         """
