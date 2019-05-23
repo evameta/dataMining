@@ -60,6 +60,9 @@ class DataProcessing:
         self.day_of_week()
         self.month_of_year()
 
+        self.prop_click_rate()
+        self.prop_book_rate()
+
         self.data = self.data.replace([np.inf, -np.inf], np.nan)
         self.data = self.data.fillna(-1)
 
@@ -161,6 +164,20 @@ class DataProcessing:
         months = self.data['date_time'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S').strftime('%B'))
         months = pd.get_dummies(months).astype('int').replace(0, -1)
         self.data = pd.concat([self.data, months], axis=1)
+
+    def prop_click_rate(self):
+        """
+        Add the proportion of times the property has been clicked when displayed in the past
+        """
+        logger.info('Adding click_rate column.')
+        self.data['click_rate'] = self.data.groupby('prop_id')['click_bool'].transform(lambda x: x.sum() / x.shape[0])
+
+    def prop_book_rate(self):
+        """
+        Add the proportion of times the property has been booked when displayed in the past
+        """
+        logger.info('Adding booking_rate column.')
+        self.data['booking_rate'] = self.data.groupby('prop_id')['booking_bool'].transform(lambda x: x.sum() / x.shape[0])
 
     def save_to_file(self):
         """
