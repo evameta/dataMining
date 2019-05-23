@@ -23,7 +23,6 @@ TRAIN = 'train.csv'
 SAMPLE = 'sample.csv'
 LEN_TRAIN = 4958347
 
-
 class DataProcessing:
 
     def __init__(self, data='train'):
@@ -304,7 +303,7 @@ def svmlight_file(data):
     Create .svmlight file
     """
     df = pd.read_csv('data/out/' + data + '.csv')
-    input_data = np.array(df.drop(columns=['target', 'srch_id']))
+    input_data = np.array(df.drop(columns=['target', 'srch_id'], errors='ignore'))
     target = np.array(df['target'])
     qid = np.array(df['srch_id'])
 
