@@ -55,6 +55,8 @@ class DataProcessing:
         self.fill_na_prop_review_score()
         self.fill_na_prop_location_score2()
         self.historical_user_data()
+
+        self.bucketing_column('price_usd', splits=[0, 50, 100, 150, 200, 300, 400, 500, 1000])
         self.normalise_column(*self.columns_to_normalise)
 
         self.data = self.data.replace([np.inf, -np.inf], np.nan)
@@ -126,6 +128,19 @@ class DataProcessing:
         logger.info('Removing columns with unnecessary or incomplete data.')
 
         self.data = self.data.drop(columns=self.columns_to_drop, errors='ignore')
+
+    def bucketing_column(self, column, splits):
+        """
+        Convert column of continuous data into multiple buckets
+        """
+        column_max = math.ceil(self.data[column].max()/splits[-1]) * splits[-1]
+        splits.append(column_max)
+
+        logger.info('Bucketing column ' + column + ' based on splits: ' + ', '.join([str(i) for i in splits]))
+
+        for lower, upper in zip(splits[:-1], splits[1:]):
+            new_column = '{col}_{lo}_{hi}'.format(col=column, lo=lower, hi=upper)
+            self.data[new_column] = (lower < self.data[column]) & (self.data[column] <= upper)
 
     def save_to_file(self):
         """
