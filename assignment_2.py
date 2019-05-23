@@ -2,22 +2,29 @@
 Hello
 """
 import csv
-import random
-import pandas as pd
+import logging
 import math
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import random
+import time
 from sklearn.datasets import dump_svmlight_file
 from operator import add
 from sklearn.preprocessing import MinMaxScaler
+
+FORMAT = '%(asctime)s [%(levelname)s] %(message)s'
+logging.basicConfig(format=FORMAT)
+logger = logging.getLogger('expedia')
+logger.setLevel(logging.DEBUG)
 
 TRAIN = 'training_set_VU_DM.csv'
 SAMPLE = 'training_sample.csv'
 LEN_TRAIN = 4958347
 
 
-def random_sample(k=150):
+def random_sample(k=1000):
     """
     Generate a random sample from the training data_set and save to new .csv file
     """
@@ -153,42 +160,42 @@ def plot_data():
 def clean_data(reload=False):
 
     if reload:
-        random_sample(150)
+        random_sample()
 
-    df = pd.read_csv("data/" + TRAIN)
+    df = pd.read_csv("data/" + SAMPLE)
 
-    # The distance between customer and hotel is set to -1.
+    logger.info('The distance between customer and hotel is set to -1.')
     df["orig_destination_distance"] = df['orig_destination_distance'].fillna(-1)
 
-    # Set missing competitor data to -1.
+    logger.info('Set missing competitor data to -1.')
     filter_col = [col for col in df if col.startswith('comp')]
     df[filter_col] = df[filter_col].fillna(-1)
 
-    # Replace NaN in prop_review_score and prop_location_score2 with minimum of search. Few have no values still --> 0
+    logger.info('Replace NaN in prop_review_score and prop_location_score2 with minimum of search. Few have no values still --> 0')
     df["prop_review_score"] = df.groupby("srch_id")["prop_review_score"].transform(lambda x: x.fillna(x.min()))
     df["prop_review_score"] = df['prop_review_score'].fillna(0)
 
     df["prop_location_score2"] = df.groupby("srch_id")["prop_location_score2"].transform(lambda x: x.fillna(x.min()))
     df["prop_location_score2"] = df["prop_location_score2"].fillna(0)
 
-    # User data according to matching/mismatching with historical data.
+    logger.info('User data according to matching/mismatching with historical data.')
     df["starrating_diff"] = (df['visitor_hist_starrating'].fillna(0) - df['prop_starrating'].fillna(0)).abs()
     df["usd_diff"] = np.log10((df['visitor_hist_adr_usd'].fillna(0) - df['price_usd'].fillna(0)).abs())
 
-    # Normalize price_usd.
+    logger.info('Normalize price_usd.')
     norm_columns = ['price_usd', 'prop_location_score1', 'prop_location_score2']
     df = normalise_columns(df, *norm_columns)
     df = df.replace([np.inf, -np.inf], np.nan)
     df = df.fillna(-1)
 
-    # Define target in training set.
+    logger.info('Define target in training set.')
     df['target'] = np.fmax((5 * df['booking_bool']).values, df['click_bool'].values)
 
-    # Remove column if not useful or missing data.
+    logger.info('Remove column if not useful or missing data.')
     df = df.drop(columns=['date_time', 'gross_bookings_usd', 'srch_query_affinity_score', 'visitor_hist_starrating',
                           'visitor_hist_adr_usd', 'booking_bool', 'click_bool'])
 
-    # Save to file.
+    logger.info('Save to file.')
     df.to_csv('data/cleaned_data.csv')
 
 
@@ -227,12 +234,18 @@ def bucketing_column(data, column, bucket_splits=None, bucket_size=None):
 
 
 def svmlight_file():
+    """
+    Create .svmlight file
+    """
     df = pd.read_csv('data/' + 'cleaned_data.csv')
-    file = 'data/data_svm.svmlight'
-    X = np.array(df.drop(columns=['target', 'srch_id']))
-    y = np.array(df['target'])
+    input_data = np.array(df.drop(columns=['target', 'srch_id']))
+    target = np.array(df['target'])
     qid = np.array(df['srch_id'])
-    dump_svmlight_file(X, y, file, multilabel=False, query_id=qid)
+
+    file = 'data/data_svm.svmlight'
+    start = time.time()
+    dump_svmlight_file(input_data, target, file, multilabel=False, query_id=qid)
+    logger.info('SVMLIGHT file created in {s} seconds'.format(s=time.time() - start))
 
 
 if __name__ == '__main__':
