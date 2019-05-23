@@ -30,7 +30,7 @@ class DataProcessing:
         self.file_name = 'data/in/' + self.type + '.csv'
         self.data = self.load_data()
 
-        self.columns_to_normalise = ['price_usd', 'prop_location_score1', 'prop_location_score2']
+        self.columns_to_normalise = ['price_usd', 'prop_location_score1', 'prop_location_score2', 'orig_destination_distance']
         self.columns_to_drop = ['date_time', 'gross_bookings_usd', 'srch_query_affinity_score',
                                 'visitor_hist_starrating', 'visitor_hist_adr_usd', 'booking_bool', 'click_bool']
 
@@ -61,9 +61,8 @@ class DataProcessing:
         self.data = self.data.fillna(-1)
 
         self.make_target_column()
-        self.drop_columns()
-
         self.data.replace(0, -1, inplace=True)
+        self.drop_columns()
 
         logger.info('Preprocessing completed in {s:.3f} seconds'.format(s=time.time() - start))
 
@@ -313,6 +312,17 @@ def svmlight_file(data):
     logger.info('SVMLIGHT file created in {s} seconds'.format(s=time.time() - start))
 
 
+def validation_set():
+    """
+    Create training and validation file
+    """
+    df = pd.read_csv('data/out/train.csv')
+    msk = np.random.rand(len(df)) < 0.9
+    train = df[msk]
+    val = df[~msk]
+    train.to_csv('data/out/train_val.csv')
+    val.to_csv('data/out/val.csv')
+
+
 if __name__ == '__main__':
-    DataProcessing('test').preprocess()
-    svmlight_file('test')
+    #svmlight_file('train')
