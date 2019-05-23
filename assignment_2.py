@@ -31,10 +31,9 @@ class DataProcessing:
         self.file_name = 'data/in/' + self.type + '.csv'
         self.data = self.load_data()
 
-        self.columns_to_normalise = ['price_usd', 'prop_location_score1', 'prop_location_score2']
+        self.columns_to_normalise = ['price_usd', 'prop_location_score1', 'prop_location_score2', 'orig_destination_distance']
         self.columns_to_drop = ['date_time', 'gross_bookings_usd', 'srch_query_affinity_score',
                                 'visitor_hist_starrating', 'visitor_hist_adr_usd', 'booking_bool', 'click_bool']
-
     def load_data(self):
         """
         Load data to process form input file
@@ -67,9 +66,8 @@ class DataProcessing:
         self.data = self.data.fillna(-1)
 
         self.make_target_column()
+        self.data.loc[:, self.data.columns != 'target'].replace(0, -1, inplace=True)
         self.drop_columns()
-
-        self.data.replace(0, -1, inplace=True)
 
         logger.info('Preprocessing completed in {s:.3f} seconds'.format(s=time.time() - start))
 
@@ -126,7 +124,7 @@ class DataProcessing:
         if self.type == 'test':
             self.data['target'] = 0
         else:
-            self.data['target'] = np.fmax((5 * self.data['booking_bool'].values), self.data['click_bool'].values) + 1
+            self.data['target'] = np.fmax((5 * self.data['booking_bool'].values), self.data['click_bool'].values)
 
     def drop_columns(self):
         """
@@ -135,6 +133,8 @@ class DataProcessing:
         logger.info('Removing columns with unnecessary or incomplete data.')
 
         self.data = self.data.drop(columns=self.columns_to_drop, errors='ignore')
+        comp_col = [col for col in self.data if col.startswith('comp')]
+        self.data = self.data.drop(columns=comp_col, errors='ignore')
 
     def bucketing_column(self, column, splits):
         """
@@ -354,6 +354,23 @@ def svmlight_file(data):
     logger.info('SVMLIGHT file created in {s} seconds'.format(s=time.time() - start))
 
 
+def validation_set():
+    """
+    Create training and validation file
+    """
+    df = pd.read_csv('data/out/train.csv')
+    val = df[df.srch_id % 10 == 0]
+    train = df[df.srch_id % 10 != 0]
+    start = time.time()
+    train.to_csv('data/out/train_val.csv')
+    val.to_csv('data/out/val.csv')
+
+    logger.info('train and validation file created in {s} seconds'.format(s=time.time() - start))
+
+
 if __name__ == '__main__':
-    DataProcessing('sample').preprocess()
-    svmlight_file('sample')
+
+    validation_set()
+    svmlight_file('train_val')
+    svmlight_file('val')
+
