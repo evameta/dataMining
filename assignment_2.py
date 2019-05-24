@@ -61,6 +61,9 @@ class DataProcessing:
 
         self.prop_click_rate()
         self.prop_book_rate()
+        self.prop_starrating()
+        self.prop_location_score1()
+        self.prop_location_score2()
 
         self.data = self.data.replace([np.inf, -np.inf], np.nan)
         self.data = self.data.fillna(-1)
@@ -179,15 +182,35 @@ class DataProcessing:
         logger.info('Adding booking_rate column.')
         self.data['booking_rate'] = self.data.groupby('prop_id')['booking_bool'].transform(lambda x: x.sum() / x.shape[0])
 
-    def mean_prop_position(self):
+    def prop_starrating(self):
         """
-        Add a column containing mean position in ranking of property
+        Add columns indicating min, max, and media values for prop_starrating
         """
-        logger.info('Adding mean_prop_position column (only for training data).')
-        if self.type == 'test':
-            return
-        logger.info('Adding mean ranking position per property.')
-        self.data['mean_prop_position'] = self.data.groupby('prop_id')['position'].transform(lambda x: x.mean())
+        logger.info('Adding min, median and max values for prop_starrating.')
+        
+        self.data['min_prop_starrating'] = self.data.groupby('prop_id')['prop_starrating'].transform(lambda x: x.min())
+        self.data['med_prop_starrating'] = self.data.groupby('prop_id')['prop_starrating'].transform(lambda x: x.median())
+        self.data['max_prop_starrating'] = self.data.groupby('prop_id')['prop_starrating'].transform(lambda x: x.max())
+
+    def prop_location_score1(self):
+        """
+        Add columns indicating min, max, and media values for prop_location_score1
+        """
+        logger.info('Adding min, median and max values for prop_location_score1.')
+
+        self.data['min_prop_location_score1'] = self.data.groupby('prop_id')['prop_location_score1'].transform(lambda x: x.min())
+        self.data['med_prop_location_score1'] = self.data.groupby('prop_id')['prop_location_score1'].transform(lambda x: x.median())
+        self.data['max_prop_location_score1'] = self.data.groupby('prop_id')['prop_location_score1'].transform(lambda x: x.max())
+
+    def prop_location_score2(self):
+        """
+        Add columns indicating min, max, and media values for prop_location_score2
+        """
+        logger.info('Adding min, median and max values for prop_location_score2.')
+
+        self.data['min_prop_location_score2'] = self.data.groupby('prop_id')['prop_location_score2'].transform(lambda x: x.min())
+        self.data['med_prop_location_score2'] = self.data.groupby('prop_id')['prop_location_score2'].transform(lambda x: x.median())
+        self.data['max_prop_location_score2'] = self.data.groupby('prop_id')['prop_location_score2'].transform(lambda x: x.max())
 
     def save_to_file(self):
         """
@@ -396,10 +419,8 @@ def submission_final():
     print(submission.head())
 
 if __name__ == '__main__':
-    DataProcessing('test').preprocess()
-    svmlight_file('test')
+    DataProcessing('sample').preprocess()
+    svmlight_file('sample')
     #validation_set()
     #svmlight_file('train_val')
     #svmlight_file('val')
-
-
