@@ -33,7 +33,8 @@ class DataProcessing:
 
         self.columns_to_normalise = ['price_usd', 'prop_location_score1', 'prop_location_score2', 'orig_destination_distance']
         self.columns_to_drop = ['date_time', 'gross_bookings_usd', 'srch_query_affinity_score',
-                                'visitor_hist_starrating', 'visitor_hist_adr_usd', 'booking_bool', 'click_bool']
+                                'visitor_hist_starrating', 'visitor_hist_adr_usd', 'booking_bool', 'click_bool',
+                                'position']
     def load_data(self):
         """
         Load data to process form input file
@@ -187,7 +188,7 @@ class DataProcessing:
         Add columns indicating min, max, and media values for prop_starrating
         """
         logger.info('Adding min, median and max values for prop_starrating.')
-        
+
         self.data['min_prop_starrating'] = self.data.groupby('prop_id')['prop_starrating'].transform(lambda x: x.min())
         self.data['med_prop_starrating'] = self.data.groupby('prop_id')['prop_starrating'].transform(lambda x: x.median())
         self.data['max_prop_starrating'] = self.data.groupby('prop_id')['prop_starrating'].transform(lambda x: x.max())
