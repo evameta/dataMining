@@ -12,7 +12,7 @@ import random
 import time
 from datetime import datetime
 from operator import add
-from sklearn.datasets import dump_svmlight_file
+from sklearn.datasets import dump_svmlight_file, load_svmlight_file
 from sklearn.preprocessing import MinMaxScaler
 
 FORMAT = '%(asctime)s [%(levelname)s] %(message)s'
@@ -60,8 +60,8 @@ class DataProcessing:
         self.day_of_week()
         self.month_of_year()
 
-        self.prop_click_rate()
-        self.prop_book_rate()
+        # self.prop_click_rate()
+        # self.prop_book_rate()
         self.prop_starrating()
         self.prop_location_score1()
         self.prop_location_score2()
@@ -70,7 +70,7 @@ class DataProcessing:
         self.data = self.data.fillna(-1)
 
         self.make_target_column()
-        self.data.loc[:, self.data.columns != 'target'].replace(0, -1, inplace=True)
+        self.data.loc[:, self.data.columns != 'target'] = self.data.loc[:, self.data.columns != 'target'].replace(0, -1)
         self.drop_columns()
 
         logger.info('Preprocessing completed in {s:.3f} seconds'.format(s=time.time() - start))
@@ -375,10 +375,7 @@ def svmlight_file(data):
     df = pd.read_csv('data/out/' + data + '.csv')
     input_data = np.array(df.drop(columns=['target', 'srch_id'], errors='ignore'))
 
-    try:
-        target = np.array(df['target'])
-    except KeyError:
-        target = np.zeros((len(df),))
+    target = np.array(df['target'])
 
     qid = np.array(df['srch_id'])
 
@@ -393,11 +390,11 @@ def validation_set():
     Create training and validation file
     """
     df = pd.read_csv('data/out/train.csv')
-    val = df[df.srch_id % 10 == 0]
-    train = df[df.srch_id % 10 != 0]
+    val = df[(df.srch_id + 2) % 100 == 0]
+    train = df[(df.srch_id + 1) % 10 == 0]
     start = time.time()
-    train.to_csv('data/out/train_val.csv')
-    val.to_csv('data/out/val.csv')
+    train.to_csv('data/out/train_val_1.csv')
+    val.to_csv('data/out/val_2.csv')
 
     logger.info('train and validation file created in {s} seconds'.format(s=time.time() - start))
 
@@ -420,8 +417,11 @@ def submission_final():
     print(submission.head())
 
 if __name__ == '__main__':
-    DataProcessing('sample').preprocess()
-    svmlight_file('sample')
-    #validation_set()
-    #svmlight_file('train_val')
-    #svmlight_file('val')
+    # DataProcessing('test').preprocess()
+    svmlight_file('test')
+    # DataProcessing('train').preprocess()
+    # validation_set()
+    # svmlight_file('train_val_1')
+    # svmlight_file('val_2')
+    # submission_final()
+
